@@ -56,3 +56,9 @@ cd android
 
 The APK will be compiled to `android/app/build/outputs/apk/debug/app-debug.apk`.
 
+---
+
+## "App not installed" on an existing installation
+
+Android blocks an update when the new APK is signed with a different key than the already-installed app. If that happens, use `youtube-recall-sidebyside.apk`: it uses the package ID `com.youtuberecall.upd`, so it installs alongside the existing version without conflicting signatures. Alternatively, uninstall the old version first and install `youtube-recall-updated.apk`.
+
