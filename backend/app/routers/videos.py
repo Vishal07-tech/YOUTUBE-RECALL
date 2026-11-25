@@ -131,6 +131,7 @@ def process_video_pipeline(db: Session, video_req: VideoIntakeRequest, user: Opt
 
     # Set AI properties
     video_record.summary_bullets = recall_data.get("summary_bullets", [])
+    video_record.important_takeaways = recall_data.get("important_takeaways", [])
     video_record.key_concepts = recall_data.get("key_concepts", [])
     video_record.topic_notes = recall_data.get("topic_notes", [])
     video_record.smart_transcript = recall_data.get("smart_transcript", recall_data.get("topic_notes", []))
@@ -334,6 +335,7 @@ def redistill_video_transcript(
     if clean_transcript:
         vid.transcript_clean = clean_transcript[:10000]
     vid.summary_bullets = recall_data.get("summary_bullets", [])
+    vid.important_takeaways = recall_data.get("important_takeaways", [])
     vid.key_concepts = recall_data.get("key_concepts", [])
     vid.topic_notes = recall_data.get("topic_notes", [])
     vid.smart_transcript = recall_data.get("smart_transcript", [])

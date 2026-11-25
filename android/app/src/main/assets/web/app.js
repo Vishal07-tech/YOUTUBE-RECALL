@@ -535,9 +535,11 @@ Return ONLY valid JSON matching this schema.`;
     thumbnail_url: meta.thumbnail_url,
     category: "Education",
     summary_bullets: result.summary_bullets || [],
+    important_takeaways: result.important_takeaways || (result.rapid_recall && result.rapid_recall.key_takeaways) || [],
     rapid_recall: result.rapid_recall || {
       five_minute_thesis: (result.summary_bullets && result.summary_bullets[0]) || "",
-      cheat_sheet: result.summary_bullets || []
+      cheat_sheet: result.summary_bullets || [],
+      key_takeaways: result.important_takeaways || []
     },
     formulas: result.formulas || [],
     laws_and_principles: result.laws_and_principles || [],
@@ -655,11 +657,16 @@ function generateLocalFallbackDistillation(title, channel, videoId) {
     ];
   }
 
+  const summaryBullets = [
+    `Foundational Principle: ${title} establishes critical insights and methodologies developed by ${channel}.`,
+    `Core Mechanisms: Demonstrates step-by-step problem-solving and systematic deduction.`,
+    `Practical Mastery: Formulates actionable frameworks for real-world engineering and active recall.`
+  ];
   return {
-    summary_bullets: [
-      `Foundational Principle: ${title} establishes critical insights and methodologies developed by ${channel}.`,
-      `Core Mechanisms: Demonstrates step-by-step problem-solving and systematic deduction.`,
-      `Practical Mastery: Formulates actionable frameworks for real-world engineering and active recall.`
+    summary_bullets: summaryBullets,
+    important_takeaways: [
+      ...summaryBullets,
+      `Focus on the key definitions, examples, and conclusions presented directly in "${title}" before applying them elsewhere.`
     ],
     rapid_recall: {
       five_minute_thesis: `In "${title}", ${channel} develops a structured framework for analyzing foundational mechanisms and practical rules.`,
@@ -667,6 +674,10 @@ function generateLocalFallbackDistillation(title, channel, videoId) {
         `Key Invariant 1: Systematically align core variables and assumptions before computing.`,
         `Key Invariant 2: Apply governing formulas or principles to reduce complex problems to primitives.`,
         `Key Invariant 3: Validate boundary conditions and convergence properties.`
+      ],
+      key_takeaways: [
+        ...summaryBullets,
+        `Focus on the key definitions, examples, and conclusions presented directly in "${title}" before applying them elsewhere.`
       ]
     },
     formulas: formulas,
@@ -1359,6 +1370,35 @@ function renderReaderView(video) {
     `).join("");
   }
 
+  // IMPORTANT TAKEAWAYS (highlighted)
+  const importantSection = document.getElementById("reader-important-section");
+  const importantList = document.getElementById("reader-important-list");
+  const importantSectionInDepth = document.getElementById("reader-important-section-indepth");
+  const importantListInDepth = document.getElementById("reader-important-list-indepth");
+  let importantTakeaways = video.important_takeaways || (video.rapid_recall && video.rapid_recall.key_takeaways) || [];
+  importantTakeaways = (importantTakeaways || []).map(x => ensureEnglish(x, "")).filter(x => x && x.length > 0);
+  if (importantTakeaways.length === 0) {
+    importantTakeaways = rules.slice(0, 6);
+  }
+  if (importantList) {
+    importantList.innerHTML = importantTakeaways.map(t => `
+      <li class="flex items-start gap-2.5">
+        <span class="text-amber-300 font-bold select-none flex-shrink-0 mt-0.5">★</span>
+        <span class="text-zinc-100 leading-relaxed">${t}</span>
+      </li>
+    `).join("");
+  }
+  if (importantListInDepth) {
+    importantListInDepth.innerHTML = importantTakeaways.map(t => `
+      <li class="flex items-start gap-2.5">
+        <span class="text-amber-300 font-bold select-none flex-shrink-0 mt-0.5">★</span>
+        <span class="text-zinc-100 leading-relaxed">${t}</span>
+      </li>
+    `).join("");
+  }
+  if (importantSection) importantSection.classList.toggle("hidden", importantTakeaways.length === 0);
+  if (importantSectionInDepth) importantSectionInDepth.classList.toggle("hidden", importantTakeaways.length === 0);
+
   // 2. Mathematical Formulas & Equations
   const formulasSec = document.getElementById("reader-formulas-section");
   const formulasGrid = document.getElementById("reader-formulas-grid");
@@ -1727,6 +1767,12 @@ async function copyCrispPoints() {
   const sections = currentViewingVideo.smart_transcript || currentViewingVideo.topic_notes || [];
 
   let out = `# ${currentViewingVideo.title}\n\n`;
+  const important = currentViewingVideo.important_takeaways || (currentViewingVideo.rapid_recall && currentViewingVideo.rapid_recall.key_takeaways) || [];
+  if (important.length) {
+    out += `## Important Takeaways (Key Points):\n`;
+    important.forEach(t => out += `- ${t}\n`);
+    out += `\n`;
+  }
   out += `## Executive Takeaways:\n`;
   (currentViewingVideo.summary_bullets || []).forEach(b => out += `- ${b}\n`);
   out += `\n`;
@@ -2515,6 +2561,12 @@ function downloadMarkdownById(videoId) {
   let md = `# ${vid.title}\n\n`;
   md += `**Channel**: ${vid.channel_title || 'YouTube'}\n`;
   md += `**Link**: https://www.youtube.com/watch?v=${vid.video_id}\n\n`;
+  const importantMd = vid.important_takeaways || (vid.rapid_recall && vid.rapid_recall.key_takeaways) || [];
+  if (importantMd.length) {
+    md += `## Important Takeaways (Key Points)\n`;
+    importantMd.forEach(t => md += `- ${t}\n`);
+    md += `\n`;
+  }
   md += `## Executive Takeaways\n`;
   (vid.summary_bullets || []).forEach(b => md += `- ${b}\n`);
   md += `\n## Smart Chapters\n`;

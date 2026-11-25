@@ -54,6 +54,7 @@ class VideoResponse(BaseModel):
     status: str
     error_message: Optional[str] = ""
     summary_bullets: List[str] = []
+    important_takeaways: List[str] = []
     key_concepts: List[str] = []
     topic_notes: List[Dict[str, Any]] = []
     smart_transcript: List[Dict[str, Any]] = []

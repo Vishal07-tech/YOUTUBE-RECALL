@@ -52,6 +52,7 @@ class Video(Base):
     formulas_json = Column(Text, default="[]")         # Mathematical & Physical formulas
     laws_and_principles_json = Column(Text, default="[]") # Scientific laws, principles & theorems
     rapid_recall_json = Column(Text, default="{}")     # 5-minute rapid recall pack
+    important_takeaways_json = Column(Text, default="[]")  # Highlighted high-signal takeaways
 
     created_at = Column(DateTime, default=utcnow)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
@@ -147,6 +148,17 @@ class Video(Base):
     @rapid_recall.setter
     def rapid_recall(self, value):
         self.rapid_recall_json = json.dumps(value or {})
+
+    @property
+    def important_takeaways(self):
+        try:
+            return json.loads(self.important_takeaways_json or "[]")
+        except Exception:
+            return []
+
+    @important_takeaways.setter
+    def important_takeaways(self, value):
+        self.important_takeaways_json = json.dumps(value or [])
 
 
 class Flashcard(Base):

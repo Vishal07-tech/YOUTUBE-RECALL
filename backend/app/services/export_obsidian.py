@@ -28,8 +28,20 @@ class ObsidianExporter:
             f"> **Channel:** [{video.channel_title}](https://www.youtube.com/watch?v={video.video_id}) | "
             f"**Duration:** {video.duration_seconds // 60}m {video.duration_seconds % 60}s | "
             f"**Category:** `{video.category}`\n",
-            "## 📌 3-Bullet Summary"
         ]
+
+        # Important Takeaways (highlighted)
+        try:
+            important = getattr(video, "important_takeaways", []) or []
+        except Exception:
+            important = []
+        if important:
+            md_lines.append("## ⭐ Important Takeaways (Key Points)")
+            for item in important:
+                md_lines.append(f"- {item}")
+            md_lines.append("")
+
+        md_lines.append("## 📌 3-Bullet Summary")
 
         for bullet in video.summary_bullets:
             md_lines.append(f"- {bullet}")

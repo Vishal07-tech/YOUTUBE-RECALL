@@ -69,6 +69,13 @@ def init_db():
 
     try:
         with engine.connect() as conn:
+            conn.execute(__import__("sqlalchemy").text("ALTER TABLE videos ADD COLUMN important_takeaways_json TEXT DEFAULT '[]'"))
+            conn.commit()
+    except Exception:
+        pass
+
+    try:
+        with engine.connect() as conn:
             conn.execute(__import__("sqlalchemy").text("ALTER TABLE videos ADD COLUMN user_id INTEGER DEFAULT 1"))
             conn.commit()
     except Exception:

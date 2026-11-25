@@ -5,6 +5,7 @@ import os
 from typing import Dict, Any, List, Optional
 import requests
 from backend.app.config import settings
+from backend.app.services.formula_library import build_formula_sheet_formulas
 
 logger = logging.getLogger(__name__)
 
@@ -16,21 +17,23 @@ CRITICAL LANGUAGE MANDATE:
 - If the original video audio, speaker, title, or transcript is in Hindi, Tamil, Telugu, Spanish, French, German, or any other regional or foreign language, YOU MUST TRANSLATE AND FORMALIZE EVERYTHING ENTIRELY INTO ENGLISH.
 - NEVER OUTPUT HINDI (DEVANAGARI CHARACTERS) OR TRANSLITERATED HINGLISH TEXT IN ANY FIELD. Every bullet, thesis, formula explanation, principle, chapter point, and flashcard must be in English.
 
-STRICT INSTRUCTION ON CONCEPTUAL DEPTH AND MATH/SCIENCE REVISION:
-- ABSOLUTELY NEVER output vague meta-descriptions like "Overview of syllabus problems", "Focus on fundamental definitions", or "The video opens with an introduction".
-- INSTEAD, YOU MUST EXPLICITLY STATE THE EXACT MATHEMATICAL/SCIENTIFIC CONCEPTS, THE ACTUAL FORMULAS USED, THE NUMERICAL IDENTITIES, AND THE STEP-BY-STEP PROBLEM-SOLVING RULES.
-- If the video covers Complex Numbers, Calculus, Physics, Chemistry, or Engineering, write out the ACTUAL equations in clean LaTeX notation (e.g. $$i = \\\\sqrt{{-1}}$$, $$i^2 = -1$$, $$i^3 = -i$$, $$i^4 = 1$$, $$i^{{4k+r}} = i^r$$, $$a^m \\\\cdot a^n = a^{{m+n}}$$, etc.).
-- TRANSLATE AND FORMALIZE ALL CONCEPTS INTO CRYSTAL-CLEAR ENGLISH WITH PRECISE MATHEMATICAL NOTATION.
-- In `smart_transcript`, each chapter's `crisp_points` must teach the ACTUAL MATHEMATICAL RULES and SOLVED EXAMPLES (e.g. "To simplify $$i^{{17}}$$, express as $$i^{{16}} \\\\cdot i = (i^4)^4 \\\\cdot i = 1 \\\\cdot i = i$$"), NOT just saying "Exercises are solved".
+STRICT GROUNDING MANDATE (MOST IMPORTANT RULE):
+- The timestamped transcript below is the ONLY source of factual claims. Base the summary, takeaways, chapters, formulas, principles, and flashcards on what the speaker ACTUALLY says.
+- The Video Title ({title}) and Channel ({channel}) are context for disambiguation only. NEVER use them to invent a topic, formula, example, result, or claim that is not supported by the transcript.
+- If the transcript is sparse, is only a description stub, or does not match the title, stay conservative: summarize only what is genuinely present and do not fabricate specifics.
+- ABSOLUTELY NEVER output vague meta-descriptions like "Overview of syllabus problems", "Focus on fundamental definitions", or "The video opens with an introduction". Instead, state the concrete subject, explanations, examples, methods, and conclusions that appear in the transcript.
 - SPEECH-TO-TEXT NOISE & TRANSCRIPT CORRECTION:
-  YouTube automated speech recognition often mishears technical terms, equations, or regional accents. You must rely on the academic topic defined by Video Title ({title}) and Channel ({channel}) to deduce the true educational subject, correct all equations and problem numbers, and generate mathematically and scientifically accurate chapters, formulas, and explanations in pristine English.
+  YouTube automated speech recognition often mishears technical terms or equations. Use the title and channel ONLY to correct obvious transcription errors (e.g. a misspelled technical term). Do not introduce new subject matter that the speaker never discusses.
+- FORMULAS/EQUATIONS (CRITICAL — do not miss any): Extract **EVERY** formula, equation, identity, theorem statement written/spoken as math, inequality, definition of a symbol used in math, or derived relation that appears anywhere in the transcript (including long podcasts). Include each only once using the clearest timestamp where it is explained. Put each as a `formulas` entry with `name`, `formula_latex` (clean LaTeX like $$E = mc^2$$), `variables`, `explanation`, and `timestamp_label`. If truly none appear, use `formulas: []` — never invent. Extract scientific laws/principles/mechanisms actually discussed into `laws_and_principles` only when stated in the transcript.
+- In `smart_transcript`, each chapter's `crisp_points` must teach the ACTUAL rules, examples, and explanations from that timestamped part of the transcript, NOT generic commentary.
 
 A student or professional should be able to review this guide in under 5 minutes and immediately recall:
-1. The Core Mental Model / Central Thesis (read in 30 seconds).
-2. The Mathematical Formulas and Equations (if a Math, Physics, or Engineering video) with clean LaTeX syntax, variables glossary, and practical derivation point.
-3. The Scientific Laws, Principles, Core Hypotheses, and Mechanisms (if a Science or Technical video).
-4. Chapter Landmarks: Compact 2-bullet takeaways for each section with timestamps.
-5. High-Yield Active Recall Flashcards testing the formulas, principles, and key mechanisms.
+1. The Core Mental Model / Central Thesis, stated faithfully from this specific video.
+2. The Most Important Takeaways: the high-signal points a viewer must remember.
+3. The Mathematical Formulas and Equations (only if actually spoken in the video) with clean LaTeX syntax.
+4. The Scientific Laws, Principles, and Mechanisms (only if actually discussed).
+5. Chapter Landmarks: Compact takeaways for each section with timestamps.
+6. High-Yield Active Recall Flashcards testing the formulas, principles, and key mechanisms that actually appear.
 
 Video Title: {title}
 Channel: {channel}
@@ -42,9 +45,16 @@ Transcript with Timestamps:
 You must return ONLY a valid JSON object matching this schema:
 {{
   "summary_bullets": [
-    "Ultra-crisp core takeaway 1: Direct, dense explanation of the central premise or mechanism.",
-    "Ultra-crisp core takeaway 2: Essential mathematical, algorithmic, or structural insight.",
-    "Ultra-crisp core takeaway 3: Final practical implication, rule, or theorem."
+    "What this specific video teaches - takeaway 1: name the concrete subject, method, or result stated in the transcript.",
+    "What this specific video teaches - takeaway 2: the essential insight or explanation actually given.",
+    "What this specific video teaches - takeaway 3: the final practical implication or conclusion actually given."
+  ],
+  "important_takeaways": [
+    "Most important point 1: the single high-signal idea a viewer must remember from this video.",
+    "Most important point 2: a concrete rule, mechanism, or result stated in the transcript.",
+    "Most important point 3: a concrete rule, mechanism, or result stated in the transcript.",
+    "Most important point 4: a practical implication or caution stated in the transcript.",
+    "Most important point 5: the final conclusion or action the speaker emphasizes."
   ],
   "rapid_recall": {{
     "five_minute_thesis": "A powerful 1-2 sentence core mental model of the entire video that allows immediate recall.",
@@ -105,10 +115,11 @@ You must return ONLY a valid JSON object matching this schema:
       "timestamp_label": "00:00"
     }}
   ],
-  "final_summary": "A cohesive 2-paragraph synthesis explaining the core thesis, mechanics, and value."
+  "final_summary": "A cohesive 2-paragraph faithful synthesis of what THIS video actually covers: its central claim, the method or explanation used, and its practical value."
 }}
 
-If the video does not contain explicit mathematical formulas, provide an empty list [] for formulas, and extract the underlying conceptual principles into laws_and_principles.
+`important_takeaways` must contain 5-7 distinct, high-signal points from the transcript, ordered by importance. Each point must be a single complete sentence in English. Do not repeat the same idea with different wording.
+If the video contains **any** mathematical formulas/equations/identities anywhere in the transcript, list **all of them** in `formulas` (one per distinct formula). If there are truly none, use `[]`. Put conceptual principles only into `laws_and_principles` when discussed (not as substitutes for real formulas).
 Do not wrap in markdown quotes; output ONLY the raw JSON object.
 """
 
@@ -262,11 +273,32 @@ class AIService:
         """
         active_provider = provider or settings.DEFAULT_AI_PROVIDER
         
-        # Format transcript excerpt with timestamps
+        # Sample evenly across the whole video (including long podcasts) so important
+        # moments (e.g. formulas) are not missed by only reading the beginning.
+        # Allow a larger, more generous transcript window than before.
+        max_chunks = 48
+        char_budget = 90000
+        if chunks:
+            if len(chunks) <= max_chunks:
+                selected_chunks = chunks
+            else:
+                selected_chunks = [
+                    chunks[i] for i in sorted({
+                        round(idx * (len(chunks) - 1) / (max_chunks - 1)) for idx in range(max_chunks)
+                    })
+                ]
+        else:
+            selected_chunks = []
+        per_chunk_chars = max(2200, char_budget // max(1, len(selected_chunks)))
+
         formatted_chunks = []
-        for c in chunks[:14]:
-            formatted_chunks.append(f"[{c.get('timestamp_label', '00:00')}] {c.get('content', '')}")
-        transcript_context = "\n\n".join(formatted_chunks) if formatted_chunks else transcript_text[:8000]
+        for c in selected_chunks:
+            raw_content = c.get("content") or ""
+            content = raw_content[:per_chunk_chars]
+            if len(raw_content) > per_chunk_chars:
+                content = content.rstrip() + " ..."
+            formatted_chunks.append(f"[{c.get('timestamp_label', '00:00')}] {content}")
+        transcript_context = "\n\n".join(formatted_chunks) if formatted_chunks else transcript_text[:char_budget]
 
         prompt = RECALL_PROMPT_TEMPLATE.format(
             title=title,
@@ -281,7 +313,7 @@ class AIService:
             try:
                 result = cls._call_gemini(prompt, gemini_key)
                 if result:
-                    return cls._normalize_result(result, chunks)
+                    return cls._normalize_result(result, chunks, title=title, transcript_text=transcript_text)
             except Exception as e:
                 logger.error(f"Gemini API call failed, falling back: {e}")
 
@@ -291,7 +323,7 @@ class AIService:
                 groq_key = api_key if (api_key and api_key.startswith("gsk_")) else settings.GROQ_API_KEY
                 result = cls._call_groq(prompt, groq_key)
                 if result:
-                    return cls._normalize_result(result, chunks)
+                    return cls._normalize_result(result, chunks, title=title, transcript_text=transcript_text)
             except Exception as e:
                 logger.error(f"Groq API call failed, falling back: {e}")
 
@@ -300,7 +332,7 @@ class AIService:
             try:
                 result = cls._call_ollama(prompt)
                 if result:
-                    return cls._normalize_result(result, chunks)
+                    return cls._normalize_result(result, chunks, title=title, transcript_text=transcript_text)
             except Exception as e:
                 logger.error(f"Ollama local call failed, falling back: {e}")
 
@@ -309,7 +341,13 @@ class AIService:
         return cls._local_heuristic_synthesis(title, channel, duration_seconds, transcript_text, chunks)
 
     @classmethod
-    def _normalize_result(cls, data: Dict[str, Any], chunks: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def _normalize_result(
+        cls,
+        data: Dict[str, Any],
+        chunks: List[Dict[str, Any]],
+        title: str = "",
+        transcript_text: str = ""
+    ) -> Dict[str, Any]:
         """Ensures smart_transcript, formulas, laws, and rapid recall are cleanly formatted."""
         smart_transcript = data.get("smart_transcript") or []
         if not smart_transcript and data.get("topic_notes"):
@@ -339,6 +377,12 @@ class AIService:
                         "explanation": f.get("explanation", ""),
                         "timestamp_label": f.get("timestamp_label", "00:00")
                     })
+        # For all-in-one formula-sheet videos (often caption-less shorts), fill in
+        # every standard formula for the topics the creator lists in title/description.
+        for extra in build_formula_sheet_formulas(title, transcript_text, chunks):
+            key = re.sub(r"\s+", "", extra.get("formula_latex", ""))
+            if key and key not in {re.sub(r"\s+", "", f.get("formula_latex", "")) for f in clean_formulas}:
+                clean_formulas.append(extra)
         data["formulas"] = clean_formulas
 
         # Normalize laws and principles
@@ -365,6 +409,31 @@ class AIService:
         if not rapid.get("cheat_sheet"):
             rapid["cheat_sheet"] = data.get("summary_bullets", [])
         data["rapid_recall"] = rapid
+
+        # Normalize highlighted important takeaways
+        raw_takeaways = data.get("important_takeaways") or []
+        if not isinstance(raw_takeaways, list):
+            raw_takeaways = []
+        clean_takeaways = []
+        for item in raw_takeaways:
+            if isinstance(item, dict):
+                item = item.get("point") or item.get("text") or item.get("takeaway") or ""
+            if isinstance(item, str) and item.strip():
+                text = re.sub(r"\s+", " ", item).strip()
+                if text and text not in clean_takeaways:
+                    clean_takeaways.append(text)
+        if not clean_takeaways:
+            fallbacks = []
+            for source in (data.get("summary_bullets"), rapid.get("key_takeaways"), rapid.get("cheat_sheet")):
+                if isinstance(source, list):
+                    fallbacks.extend(source)
+            for item in fallbacks:
+                if isinstance(item, str) and item.strip():
+                    text = re.sub(r"\s+", " ", item).strip()
+                    if text and text not in clean_takeaways:
+                        clean_takeaways.append(text)
+        data["important_takeaways"] = clean_takeaways[:8]
+        rapid["key_takeaways"] = data["important_takeaways"]
 
         return data
 
@@ -514,25 +583,13 @@ class AIService:
         is_math = bool(re.search(r'(complex|math|calculus|algebra|series|derivative|integral|equation|matrix|power of i)', f"{title} {transcript_text}", re.IGNORECASE))
         is_science = bool(re.search(r'(physics|chem|bio|quantum|thermo|mechanics|energy|wave)', f"{title} {transcript_text}", re.IGNORECASE))
 
-        # Domain-aware English fallbacks for non-English sources or sparse transcripts
-        if is_math:
-            fallback_bullets = [
-                f"Core foundations of {title}: Establishes governing algebraic identities, domain definitions, and analytical properties.",
-                "Systematic problem-solving rules and reduction algorithms for evaluating complex expressions.",
-                "Actionable mathematical takeaways and step-by-step methods for active recall and revision."
-            ]
-        elif is_science:
-            fallback_bullets = [
-                f"Governing principles and empirical foundations analyzed in {title}.",
-                "Underlying mechanisms, physical laws of conservation, and experimental observations.",
-                "Structured takeaways detailing the core hypothesis and practical implications."
-            ]
-        else:
-            fallback_bullets = [
-                f"Core mental model and thesis developed in '{title}'.",
-                "Systematic exploration of primary mechanisms, techniques, and structured frameworks.",
-                "Actionable takeaways for active recall, long-term mastery, and practical application."
-            ]
+        # Topic-neutral English fallbacks for non-English sources or sparse transcripts.
+        # Without transcript evidence we must not invent formulas or subject-specific claims.
+        fallback_bullets = [
+            f"'{title}' by {channel} introduces its central idea and the context in which it is discussed.",
+            "The video develops this idea through explanations and examples given by the speaker.",
+            "The closing takeaways connect those explanations to how they can be applied or revised."
+        ]
 
         def is_clean_english(text: str) -> bool:
             if not text:
@@ -707,12 +764,29 @@ class AIService:
                 "takeaways": bullets[:2]
             })
 
-        # 4. Final Comprehensive Synthesis
+        clean_bullets = [b for b in bullets if is_clean_english(b)] or fallback_bullets
+
+        # 4. Highlighted Important Takeaways (highest-signal sentences from the transcript)
+        important_takeaways = []
+        for s in scored_sentences:
+            cleaned = cls.clean_and_distill_sentence(s)
+            if cleaned and len(cleaned) > 35 and cleaned not in important_takeaways and is_clean_english(cleaned):
+                important_takeaways.append(cleaned)
+            if len(important_takeaways) == 6:
+                break
+        if len(important_takeaways) < 3:
+            for b in bullets:
+                if b not in important_takeaways and is_clean_english(b):
+                    important_takeaways.append(b)
+        if not important_takeaways:
+            important_takeaways = list(clean_bullets)
+        important_takeaways = important_takeaways[:8]
+
+        # 5. Final Comprehensive Synthesis (grounded in the extracted transcript points)
         final_summary = (
-            f"In '{title}' by {channel}, the content revolves around core mathematical and computational mechanisms. "
-            f"Primary Takeaway: {bullets[0]} "
-            f"The analysis systematically explores {', '.join(t[0].capitalize() for t in top_terms[:3]) if top_terms else 'foundational principles'}, "
-            f"demonstrating that {bullets[-1]}"
+            f"In '{title}' by {channel}, the central idea is this: {bullets[0]} "
+            f"{('The discussion develops it as follows: ' + bullets[1]) if len(bullets) > 1 else ''} "
+            f"Overall, {bullets[-1]}"
         )
 
         # High-yield Q&A pairs for active recall if requested
@@ -755,8 +829,14 @@ class AIService:
                     "explanation": fdesc,
                     "timestamp_label": ts_lbl
                 })
-                if len(formulas) >= 4:
-                    break
+                # Do not cap: formula-sheet videos and long lectures can contain many formulas.
+
+        # Include the full standard formula set when the video is an all-in-one
+        # formula sheet (these shorts usually have no spoken captions).
+        for extra in build_formula_sheet_formulas(title, transcript_text, chunks):
+            key = re.sub(r"\s+", "", extra.get("formula_latex", ""))
+            if key and key not in {re.sub(r"\s+", "", f.get("formula_latex", "")) for f in formulas}:
+                formulas.append(extra)
 
         if is_science and not is_math:
             science_patterns = [
@@ -799,16 +879,15 @@ class AIService:
                     if len(laws_and_principles) >= 2:
                         break
 
-        clean_bullets = [b for b in bullets if is_clean_english(b)] or fallback_bullets
-
         rapid_recall = {
             "five_minute_thesis": clean_bullets[0] if clean_bullets else f"Central framework of {title}.",
             "cheat_sheet": clean_bullets[:3],
-            "key_takeaways": clean_bullets
+            "key_takeaways": important_takeaways
         }
 
         return {
             "summary_bullets": bullets[:3],
+            "important_takeaways": important_takeaways,
             "key_concepts": key_concepts,
             "smart_transcript": smart_transcript,
             "topic_notes": topic_notes,
